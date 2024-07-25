@@ -1,7 +1,8 @@
 # Webscraping Experiment 0.0.1
 
 ## How To Run
-Run the `.py` scripts from the repository (`src\101\webscraping_101` or `src\102\webscraping_102`) in any IDE. 101 is hardcoded (WIP) whereas 102 has terminal interface (WIP).
+1. Download ZIP, unzip, then open the folder (`-main`) with any IDE.
+2. Run the `.py` script from the repository (`src\101\webscraping_101` or `src\102\webscraping_102`). 101 is hardcoded (WIP) whereas 102 has terminal interface (WIP).
 
 ## Why Do We Create This
 This is an experiment to create a program in order to scrape website information into useful data for research and analysis purposes.
