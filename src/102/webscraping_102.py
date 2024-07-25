@@ -41,6 +41,11 @@ def scrape_article_data(urls, chosen_headers):
         html_content = response.content
         soup = BeautifulSoup(html_content, 'html.parser')
 
+        # Save the HTML content of the first URL
+        if url == urls[0]:
+            with open(os.path.join(directory_path, 'scraped_website.html'), 'wb') as file:
+                file.write(html_content)
+
         # Extract the title of the article
         title_tag = soup.find('title')
         title = title_tag.text if title_tag else 'N/A'
@@ -58,7 +63,7 @@ def scrape_article_data(urls, chosen_headers):
                 if sibling.name == 'p':
                     content.append(sibling.text.strip())
                 sibling = sibling.find_next_sibling()
-            article_data[header_text] = '\n'.join(content)
+            article_data[header_text] = ' '.join(content)
 
         articles_data.append(article_data)
     return articles_data
@@ -87,55 +92,31 @@ os.makedirs(directory_path, exist_ok=True)
 # Scrape article data
 articles_data = scrape_article_data(urls, chosen_headers)
 
-# Define the CSV file path
-csv_file_path = os.path.join(directory_path, 'scraped_data.csv')
-
-# Write scraped data to a CSV file
-with open(csv_file_path, 'w', newline='', encoding='utf-8') as csvfile:
-    fieldnames = ['URL', 'Title'] + [header.text.strip() for header in chosen_headers]
-    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-
-    # Write header
-    writer.writeheader()
-
-    # Write each row of scraped data
-    writer.writerows(articles_data)
-
-print("Scraped data has been written to", csv_file_path)
-
-# Load scraped data into DataFrame
-scraped = pd.read_csv(csv_file_path)
-print(scraped)
+# Convert scraped data to DataFrame
+scraped_df = pd.DataFrame(articles_data)
 
 # Check for NaN values per column
-nan_counts = scraped.isnull().sum()
+nan_counts = scraped_df.isnull().sum()
 print('Number of NaN values per column:\n', nan_counts)
 
 # Check if there is any null value in the DataFrame
-has_null = scraped.isnull().any().any()
+has_null = scraped_df.isnull().any().any()
 print("Are there any null values in the DataFrame?", has_null)
 
 # Drop rows with NaN values
-scraped_cleaned = scraped.dropna(subset=['Title'] + [header.text.strip() for header in chosen_headers])
+scraped_cleaned_df = scraped_df.dropna(subset=['Title'] + [header.text.strip() for header in chosen_headers])
 
 # Verify the rows have been dropped
-print("Number of rows after dropping NaNs:", len(scraped_cleaned))
+print("Number of rows after dropping NaNs:", len(scraped_cleaned_df))
 
-# Save the cleaned DataFrame to a new CSV file
-csv_file_path_cleaned = os.path.join(directory_path, 'cleaned_articles.csv')
-scraped_cleaned.to_csv(csv_file_path_cleaned, index=False, encoding='utf-8')
+# Define the CSV file path for the final cleaned data
+csv_file_path = os.path.join(directory_path, 'scraped_data.csv')
 
-print(f"Cleaned data has been saved to '{csv_file_path_cleaned}'.")
+# Save the cleaned DataFrame to a CSV file
+scraped_cleaned_df.to_csv(csv_file_path, index=False, encoding='utf-8', quoting=csv.QUOTE_MINIMAL)
 
-# Load cleaned data
-clean_scraped = pd.read_csv(csv_file_path_cleaned)
-print(clean_scraped)
+print(f"Cleaned data has been saved to '{csv_file_path}'.")
 
-# Save cleaned data again
-csv_file_path_cleaned_final = os.path.join(directory_path, 'scraped_cleaned_articles.csv')
-clean_scraped.to_csv(csv_file_path_cleaned_final, index=False, encoding='utf-8')
-print(f"Cleaned data has been saved to '{csv_file_path_cleaned_final}'.")
-
-# Load cleaned data again
-scraped_cleaned_article = pd.read_csv(csv_file_path_cleaned_final)
-print(scraped_cleaned_article)
+'''# Load cleaned data for verification (if needed)
+cleaned_data = pd.read_csv(csv_file_path)
+print(cleaned_data)'''
