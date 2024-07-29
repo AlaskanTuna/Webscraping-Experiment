@@ -4,8 +4,9 @@ import csv
 import pandas as pd
 import os
 
-# Function to get URLs from the user
-def get_urls():
+# Function to get folder name and URLs from the user
+def get_folder_and_urls():
+    folder_name = input("Enter the folder name to store the CSV files: ")
     urls = []
     while True:
         url = input("Please enter a URL: ")
@@ -13,27 +14,43 @@ def get_urls():
         more_urls = input("Do you still want to add URL? [Y/N]: ").strip().lower()
         if more_urls != 'y':
             break
-    return urls
+    return folder_name, urls
 
-# Function to parse headers from the HTML content
-def get_headers(soup):
-    headers = []
-    for i in range(1, 7):  # h1 to h6
-        headers.extend(soup.find_all(f'h{i}'))
-    return headers
+# Function to parse div classes from the HTML content
+def get_div_classes(soup):
+    div_classes = []
+    divs = soup.find_all('div')
+    for idx, div in enumerate(divs):
+        if 'class' in div.attrs:
+            class_name = '.'.join(div.attrs['class'])
+            div_classes.append(class_name)
+    return div_classes
 
-# Function to display headers to the user and get their choices
-def choose_headers(headers):
-    print("Available headers:")
-    for idx, header in enumerate(headers):
-        print(f"{idx + 1}. {header.text.strip()}")
-    
-    choices = input("Enter the numbers of the headers you want to scrape (comma-separated): ")
-    chosen_indices = [int(choice.strip()) - 1 for choice in choices.split(',')]
-    return [headers[idx] for idx in chosen_indices]
+# Function to display div classes to the user and get their choice
+def choose_div_class(div_classes):
+    print("Available div classes:")
+    unique_classes = list(set(div_classes))
+    for idx, div_class in enumerate(unique_classes):
+        occurrences = div_classes.count(div_class)
+        if occurrences > 1:
+            for i in range(occurrences):
+                print(f"{idx + 1}-{i + 1}. {div_class} ({i + 1})")
+        else:
+            print(f"{idx + 1}. {div_class}")
 
-# Function to scrape article data based on chosen headers
-def scrape_article_data(urls, chosen_headers):
+    choices = input("Enter the number of the div class you want to scrape: ")
+    if '-' in choices:
+        chosen_index, instance = map(int, choices.strip().split('-'))
+        chosen_class = unique_classes[chosen_index - 1]
+        instance = instance - 1
+    else:
+        chosen_index = int(choices.strip()) - 1
+        chosen_class = unique_classes[chosen_index]
+        instance = 0
+    return chosen_class, instance
+
+# Function to scrape article data based on the chosen div class
+def scrape_article_data(urls, chosen_class, instance):
     articles_data = []  # empty list
 
     for url in urls:
@@ -50,38 +67,24 @@ def scrape_article_data(urls, chosen_headers):
         title_tag = soup.find('title')
         title = title_tag.text if title_tag else 'N/A'
 
+        # Extract the content inside the chosen div class
+        divs = soup.find_all('div', class_=chosen_class.split('.'))
+        if instance < len(divs):
+            content = divs[instance].get_text(strip=True)
+        else:
+            content = ''
+
         article_data = {
             'URL': url,
-            'Title': title
+            'Title': title,
+            'Description': content
         }
-
-        for header in chosen_headers:
-            header_text = header.text.strip()
-            content = []
-            sibling = header.find_next_sibling()
-            while sibling and sibling.name != header.name:
-                if sibling.name == 'p':
-                    content.append(sibling.text.strip())
-                sibling = sibling.find_next_sibling()
-            article_data[header_text] = ' '.join(content)
 
         articles_data.append(article_data)
     return articles_data
 
-# Get URLs from the user
-urls = get_urls()
-
-# Fetch the first URL to display headers for selection
-response = requests.get(urls[0])
-html_content = response.content
-soup = BeautifulSoup(html_content, 'html.parser')
-
-# Get and display headers
-headers = get_headers(soup)
-chosen_headers = choose_headers(headers)
-
-# Prompt the user for a folder name
-folder_name = input("Enter the folder name to store the CSV files: ")
+# Get folder name and URLs from the user
+folder_name, urls = get_folder_and_urls()
 
 # Define the directory path
 directory_path = os.path.join('Documents', 'csv_files', folder_name)
@@ -89,34 +92,29 @@ directory_path = os.path.join('Documents', 'csv_files', folder_name)
 # Create the directory if it does not exist
 os.makedirs(directory_path, exist_ok=True)
 
+# Fetch the first URL to display div classes for selection
+response = requests.get(urls[0])
+html_content = response.content
+soup = BeautifulSoup(html_content, 'html.parser')
+
+# Get and display div classes
+div_classes = get_div_classes(soup)
+chosen_class, instance = choose_div_class(div_classes)
+
 # Scrape article data
-articles_data = scrape_article_data(urls, chosen_headers)
+articles_data = scrape_article_data(urls, chosen_class, instance)
 
 # Convert scraped data to DataFrame
 scraped_df = pd.DataFrame(articles_data)
-
-# Check for NaN values per column
-nan_counts = scraped_df.isnull().sum()
-print('Number of NaN values per column:\n', nan_counts)
-
-# Check if there is any null value in the DataFrame
-has_null = scraped_df.isnull().any().any()
-print("Are there any null values in the DataFrame?", has_null)
-
-# Drop rows with NaN values
-scraped_cleaned_df = scraped_df.dropna(subset=['Title'] + [header.text.strip() for header in chosen_headers])
-
-# Verify the rows have been dropped
-print("Number of rows after dropping NaNs:", len(scraped_cleaned_df))
 
 # Define the CSV file path for the final cleaned data
 csv_file_path = os.path.join(directory_path, 'scraped_data.csv')
 
 # Save the cleaned DataFrame to a CSV file
-scraped_cleaned_df.to_csv(csv_file_path, index=False, encoding='utf-8', quoting=csv.QUOTE_MINIMAL)
+scraped_df.to_csv(csv_file_path, index=False, encoding='utf-8', quoting=csv.QUOTE_MINIMAL)
 
 print(f"Cleaned data has been saved to '{csv_file_path}'.")
 
-'''# Load cleaned data for verification (if needed)
-cleaned_data = pd.read_csv(csv_file_path)
-print(cleaned_data)'''
+# Load cleaned data for verification (if needed)
+# cleaned_data = pd.read_csv(csv_file_path)
+# print(cleaned_data)
