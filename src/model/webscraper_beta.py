@@ -11,9 +11,7 @@ def get_folder_and_urls():
     while True:
         url = input("Please enter a URL: ")
         urls.append(url)
-        more_urls = input("Do you still want to add URL? [Y/N]: ").strip().lower()
-        if more_urls != 'y':
-            break
+        break
     return folder_name, urls
 
 # Function to parse div classes from the HTML content
